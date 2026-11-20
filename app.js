@@ -149,7 +149,7 @@ function renderShell() {
   const root = document.getElementById('app');
   const groups = ['STUDENT HUB','CAMPUS LIFE'];
   root.innerHTML = `<div class="shell"><aside class="sidebar" id="sidebar">${brand()}${groups.map(group=>`<div class="nav-label">${group}</div><nav class="nav-list" aria-label="${group.toLowerCase()}">${navItems.filter(n=>n.group===group).map(n=>`<button class="nav-link ${state.activePage===n.id?'active':''}" data-page="${n.id}" ${state.activePage===n.id?'aria-current="page"':''}>${I(n.icon)}<span>${n.label}</span></button>`).join('')}</nav>`).join('')}<div class="nav-spacer"></div><div class="sidebar-bottom"><div class="campus-status"><i class="status-dot"></i><div><strong>Dayananda Sagar University campus</strong><span>Open · Student services online</span></div></div><div class="sidebar-foot"><span>DSU Pulse demo</span><span>v1.0</span></div></div></aside><div class="mobile-scrim" id="mobile-scrim" data-action="close-mobile"></div>
-  <div class="main-area"><header class="topbar"><div class="topbar-left"><button class="mobile-menu" aria-label="Open navigation" data-action="open-mobile">${I('menu')}</button><div class="global-search"><span>${I('search')}</span><input id="global-search-input" type="search" autocomplete="off" placeholder="Search campus services…" aria-label="Search campus services" /><kbd class="search-shortcut">/</kbd><div class="search-popover" id="search-popover"></div></div></div><div class="topbar-right"><div class="menu-anchor"><button class="icon-button" aria-label="Notifications" data-menu-toggle="notifications">${I('bell')}<i class="notification-dot"></i></button><div class="utility-menu" id="menu-notifications"><div class="menu-head"><strong>Notifications</strong><span>Recent updates for you</span></div><div class="notification-item"><strong>Design Futures: Open Studio</strong><span>You’re registered · Sunday at 2:00 PM</span></div><div class="notification-item"><strong>Request NB-24091 updated</strong><span>Your facilities request is in progress.</span></div><div class="notification-item"><strong>New on the campus board</strong><span>A set of keys was found at the East Library.</span></div></div></div><span class="top-divider"></span><div class="menu-anchor"><button class="profile-trigger" data-menu-toggle="profile" aria-label="Student profile menu"><span class="avatar">MC</span><span class="profile-copy"><strong>${esc(state.user.name)}</strong><span>Student · Year 2</span></span>${I('chevron')}</button><div class="utility-menu" id="menu-profile"><div class="menu-head"><strong>${esc(state.user.name)}</strong><span>${esc(state.user.email)}</span></div><button class="menu-action" data-action="profile">${I('user')} Student profile</button><button class="menu-action danger" data-action="signout">${I('logout')} Sign out</button></div></div></div></header><main id="page-content" class="page-wrap"></main></div></div>`;
+  <div class="main-area"><header class="topbar"><div class="topbar-left"><button class="mobile-menu" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false" data-action="open-mobile">${I('menu')}</button><div class="global-search"><span class="search-icon" aria-hidden="true">${I('search')}</span><input id="global-search-input" type="search" autocomplete="off" placeholder="Search campus services…" aria-label="Search campus services" /><kbd class="search-shortcut">/</kbd><div class="search-popover" id="search-popover"></div></div></div><div class="topbar-right"><div class="menu-anchor"><button class="icon-button" aria-label="Notifications" data-menu-toggle="notifications">${I('bell')}<i class="notification-dot"></i></button><div class="utility-menu" id="menu-notifications"><div class="menu-head"><strong>Notifications</strong><span>Recent updates for you</span></div><div class="notification-item"><strong>Design Futures: Open Studio</strong><span>You’re registered · Sunday at 2:00 PM</span></div><div class="notification-item"><strong>Request NB-24091 updated</strong><span>Your facilities request is in progress.</span></div><div class="notification-item"><strong>New on the campus board</strong><span>A set of keys was found at the East Library.</span></div></div></div><span class="top-divider"></span><div class="menu-anchor"><button class="profile-trigger" data-menu-toggle="profile" aria-label="Student profile menu"><span class="avatar">MC</span><span class="profile-copy"><strong>${esc(state.user.name)}</strong><span>Student · Year 2</span></span>${I('chevron')}</button><div class="utility-menu" id="menu-profile"><div class="menu-head"><strong>${esc(state.user.name)}</strong><span>${esc(state.user.email)}</span></div><button class="menu-action" data-action="profile">${I('user')} Student profile</button><button class="menu-action danger" data-action="signout">${I('logout')} Sign out</button></div></div></div></header><main id="page-content" class="page-wrap"></main></div></div>`;
   renderPage();
 }
 
@@ -314,9 +314,16 @@ function navigate(page) {
   if(!pageInfo[page]) return;
   state.activePage=page; state.menu=null;
   document.getElementById('menu-profile')?.classList.remove('is-open'); document.getElementById('menu-notifications')?.classList.remove('is-open');
-  document.getElementById('sidebar')?.classList.remove('is-open'); document.getElementById('mobile-scrim')?.classList.remove('is-visible');
+  closeMobileMenu();
   document.querySelectorAll('.nav-link').forEach(n=>{n.classList.toggle('active',n.dataset.page===page); if(n.dataset.page===page)n.setAttribute('aria-current','page');else n.removeAttribute('aria-current');});
   renderPage(); window.scrollTo({top:0,behavior:'smooth'});
+}
+function closeMobileMenu() {
+  document.getElementById('sidebar')?.classList.remove('is-open');
+  document.getElementById('mobile-scrim')?.classList.remove('is-visible');
+  const toggle=document.querySelector('.mobile-menu');
+  toggle?.setAttribute('aria-expanded','false');
+  toggle?.setAttribute('aria-label','Open navigation');
 }
 function handleGlobalSearch(value) {
   const pop=document.getElementById('search-popover'); if(!pop)return;
@@ -350,7 +357,7 @@ function sendChat(text) {
 }
 
 document.addEventListener('click', e => {
-  const target=e.target.closest('button,[data-page],[data-destination],[data-detail-lost],[data-detail-market],[data-edit-market],[data-detail-event],[data-detail-request],[data-register-event],[data-chat-suggestion],[data-task-done],[data-cancel-appointment],[data-search-page]');
+  const target=e.target.closest('button,#mobile-scrim,[data-page],[data-destination],[data-detail-lost],[data-detail-market],[data-edit-market],[data-detail-event],[data-detail-request],[data-register-event],[data-chat-suggestion],[data-task-done],[data-cancel-appointment],[data-search-page]');
   if(!target)return;
   if(target.dataset.page){e.preventDefault();navigate(target.dataset.page);return;}
   if(target.dataset.accountType){state.accountType=target.dataset.accountType;renderAuth();return;}
@@ -378,8 +385,8 @@ document.addEventListener('click', e => {
   if(action==='auth-back'){state.authScreen='login';renderAuth();return;}
   if(action==='demo-signin'){state.user=state.accountType==='admin'?{name:'Jordan Lee',email:'jordan.lee@dsu.edu.in',id:'ADM-104',major:'Campus Services',year:'Admin'}:{name:'Maya Chen',email:'maya.chen@student.dsu.edu.in',id:'S2408172',major:'Environmental Design',year:'Year 2'};state.authenticated=true;state.activePage='dashboard';renderShell();showToast(`Welcome to the DSU Pulse ${state.accountType} demo.`);return;}
   if(action==='signout'){state.authenticated=false;state.authScreen='login';state.menu=null;renderAuth();return;}
-  if(action==='open-mobile'){document.getElementById('sidebar')?.classList.add('is-open');document.getElementById('mobile-scrim')?.classList.add('is-visible');return;}
-  if(action==='close-mobile'){document.getElementById('sidebar')?.classList.remove('is-open');document.getElementById('mobile-scrim')?.classList.remove('is-visible');return;}
+  if(action==='open-mobile'){document.getElementById('sidebar')?.classList.add('is-open');document.getElementById('mobile-scrim')?.classList.add('is-visible');target.setAttribute('aria-expanded','true');target.setAttribute('aria-label','Close navigation');return;}
+  if(action==='close-mobile'){closeMobileMenu();return;}
   if(action==='close-modal'){closeModal();return;}
   if(action==='report-lost'){reportModal();return;}
   if(action==='new-listing'){listingModal();return;}
@@ -450,7 +457,7 @@ document.addEventListener('submit', e => {
   if(form.id==='chat-form'){const text=form.message.value;sendChat(text);return;}
 });
 document.addEventListener('keydown', e=>{
-  if(e.key==='Escape'){closeModal();document.querySelectorAll('.utility-menu').forEach(m=>m.classList.remove('is-open'));document.getElementById('search-popover')?.classList.remove('is-open');document.getElementById('sidebar')?.classList.remove('is-open');document.getElementById('mobile-scrim')?.classList.remove('is-visible');}
+  if(e.key==='Escape'){closeModal();document.querySelectorAll('.utility-menu').forEach(m=>m.classList.remove('is-open'));document.getElementById('search-popover')?.classList.remove('is-open');closeMobileMenu();}
   if(e.key==='/'&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)&&state.authenticated){e.preventDefault();document.getElementById('global-search-input')?.focus();}
   if((e.key==='Enter'||e.key===' ')&&e.target.matches('.map-pin')){e.preventDefault();state.selectedDestination=e.target.dataset.destination;renderPage();}
 });
