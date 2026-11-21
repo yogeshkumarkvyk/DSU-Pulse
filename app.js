@@ -57,6 +57,7 @@ const navItems = [
   { id:'dashboard',label:'Home',icon:'home',group:'STUDENT HUB' },
   { id:'lost',label:'Lost & found',icon:'key',group:'STUDENT HUB' },
   { id:'marketplace',label:'Marketplace',icon:'bag',group:'STUDENT HUB' },
+  { id:'hostel',label:'Hostel spaces',icon:'building',group:'STUDENT HUB' },
   { id:'navigation',label:'Campus map',icon:'map',group:'STUDENT HUB' },
   { id:'complaints',label:'Requests',icon:'alert',group:'CAMPUS LIFE' },
   { id:'groups',label:'Group projects',icon:'users',group:'CAMPUS LIFE' },
@@ -67,6 +68,7 @@ const pageInfo = {
   dashboard:['Your campus, in one place','A clear view of what’s happening and what needs your attention.'],
   lost:['Lost & found','A campus-wide board for things misplaced or waiting to be claimed.'],
   marketplace:['Student marketplace','Buy, sell, and pass along useful things within the student community.'],
+  hostel:['Hostel spaces','Find and reserve study rooms and private tables in towers you can access.'],
   navigation:['Campus map','Find your destination and get a simple walking route around campus.'],
   complaints:['Requests & reports','Track campus issues and service requests from one place.'],
   groups:['Group projects','Keep team tasks, members, and deadlines moving together.'],
@@ -74,12 +76,29 @@ const pageInfo = {
   appointments:['Appointments','Choose a campus service and reserve a convenient time.'],
 };
 
+const hostelTowers = [
+  {id:'boys-1',name:'Boys Tower 1',group:'boys'},
+  {id:'boys-2',name:'Boys Tower 2',group:'boys'},
+  {id:'boys-3',name:'Boys Tower 3',group:'boys'},
+  {id:'girls-1',name:'Girls Tower 1',group:'girls'},
+  {id:'girls-2',name:'Girls Tower 2',group:'girls'},
+];
+const sampleHostelBookings = [
+  {id:'demo-g1-r2-a',towerId:'girls-1',type:'discussion',spaceId:'room-2',date:isoToday,start:'18:30',end:'19:30'},
+  {id:'demo-g1-r2-b',towerId:'girls-1',type:'discussion',spaceId:'room-2',date:isoToday,start:'21:00',end:'22:00'},
+  {id:'demo-g1-p3',towerId:'girls-1',type:'private',tableNumber:3,date:isoToday,start:'17:00',end:'18:00'},
+  {id:'demo-g1-p7',towerId:'girls-1',type:'private',tableNumber:7,date:isoToday,start:'19:00',end:'20:00'},
+  {id:'demo-g2-r4',towerId:'girls-2',type:'discussion',spaceId:'room-4',date:isoToday,start:'20:00',end:'21:00'},
+  {id:'demo-b1-r1',towerId:'boys-1',type:'discussion',spaceId:'room-1',date:isoToday,start:'16:00',end:'17:00'},
+  {id:'demo-b2-p5',towerId:'boys-2',type:'private',tableNumber:5,date:isoToday,start:'20:00',end:'21:00'},
+];
 const state = {
-  authenticated:false, authScreen:'login', activePage:'dashboard', accountType:'student', user:{name:'Maya Chen',email:'maya.chen@dsu.edu.in',id:'S2408172',major:'Environmental Design',year:'Year 2'},
+  authenticated:false, authScreen:'login', activePage:'dashboard', accountType:'student', user:{name:'Maya Chen',email:'maya.chen@dsu.edu.in',id:'S2408172',major:'Environmental Design',year:'Year 2',hostelGroup:'girls'},
   passwordShown:false, menu:null, modal:null, toastTimer:null, searchResults:[],
   lostTab:'all', lostQuery:'', lostLocation:'all', lostCategory:'all', lostDate:'all',
   marketTab:'browse', marketQuery:'', marketCategory:'all', marketCondition:'all', marketPrice:'all',
   requestTab:'all', selectedDestination:'library', selectedEventCategory:'all', eventTab:'discover', eventQuery:'',
+  hostelTower:'girls-1', hostelBookingDate:isoToday, hostelTab:'spaces', hostelReservations:[],
   events:[
     {id:'ev1',title:'Lantern Walk on the Quad',date:'2026-11-21',time:'6:30 PM',venue:'Founders Quad',category:'Community',desc:'A gentle evening walk through campus with lanterns, warm drinks, and live student music.',spots:48,registered:false},
     {id:'ev2',title:'Design Futures: Open Studio',date:'2026-11-22',time:'2:00 PM',venue:'Marlow Design Hall',category:'Academic',desc:'Explore student work, meet the studio mentors, and try a quick creative workshop.',spots:18,registered:true},
@@ -148,8 +167,13 @@ function renderAuth() {
 function renderShell() {
   const root = document.getElementById('app');
   const groups = ['STUDENT HUB','CAMPUS LIFE'];
+  const servicePages = ['hostel','lost','marketplace','complaints','appointments'];
+  const mobileTabs = [['dashboard','Home','home'],['events','Events','calendar'],['navigation','Map','map'],['hostel','Services','building']].map(([page,label,icon])=>{
+    const active=page==='hostel'?servicePages.includes(state.activePage):state.activePage===page;
+    return `<button class="mobile-tab ${active?'active':''}" data-page="${page}" ${active?'aria-current="page"':''}><span class="mobile-tab-icon">${I(icon)}</span><span>${label}</span></button>`;
+  }).join('');
   root.innerHTML = `<div class="shell"><aside class="sidebar" id="sidebar">${brand()}${groups.map(group=>`<div class="nav-label">${group}</div><nav class="nav-list" aria-label="${group.toLowerCase()}">${navItems.filter(n=>n.group===group).map(n=>`<button class="nav-link ${state.activePage===n.id?'active':''}" data-page="${n.id}" ${state.activePage===n.id?'aria-current="page"':''}>${I(n.icon)}<span>${n.label}</span></button>`).join('')}</nav>`).join('')}<div class="nav-spacer"></div><div class="sidebar-bottom"><div class="campus-status"><i class="status-dot"></i><div><strong>Dayananda Sagar University campus</strong><span>Open · Student services online</span></div></div><div class="sidebar-foot"><span>DSU Pulse demo</span><span>v1.0</span></div></div></aside><div class="mobile-scrim" id="mobile-scrim" data-action="close-mobile"></div>
-  <div class="main-area"><header class="topbar"><div class="topbar-left"><button class="mobile-menu" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false" data-action="open-mobile">${I('menu')}</button><div class="global-search"><span class="search-icon" aria-hidden="true">${I('search')}</span><input id="global-search-input" type="search" autocomplete="off" placeholder="Search campus services…" aria-label="Search campus services" /><kbd class="search-shortcut">/</kbd><div class="search-popover" id="search-popover"></div></div></div><div class="topbar-right"><div class="menu-anchor"><button class="icon-button" aria-label="Notifications" data-menu-toggle="notifications">${I('bell')}<i class="notification-dot"></i></button><div class="utility-menu" id="menu-notifications"><div class="menu-head"><strong>Notifications</strong><span>Recent updates for you</span></div><div class="notification-item"><strong>Design Futures: Open Studio</strong><span>You’re registered · Sunday at 2:00 PM</span></div><div class="notification-item"><strong>Request NB-24091 updated</strong><span>Your facilities request is in progress.</span></div><div class="notification-item"><strong>New on the campus board</strong><span>A set of keys was found at the East Library.</span></div></div></div><span class="top-divider"></span><div class="menu-anchor"><button class="profile-trigger" data-menu-toggle="profile" aria-label="Student profile menu"><span class="avatar">MC</span><span class="profile-copy"><strong>${esc(state.user.name)}</strong><span>Student · Year 2</span></span>${I('chevron')}</button><div class="utility-menu" id="menu-profile"><div class="menu-head"><strong>${esc(state.user.name)}</strong><span>${esc(state.user.email)}</span></div><button class="menu-action" data-action="profile">${I('user')} Student profile</button><button class="menu-action danger" data-action="signout">${I('logout')} Sign out</button></div></div></div></header><main id="page-content" class="page-wrap"></main></div></div>`;
+  <div class="main-area"><header class="topbar"><div class="topbar-left"><button class="mobile-menu" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false" data-action="open-mobile">${I('menu')}</button><div class="global-search"><span class="search-icon" aria-hidden="true">${I('search')}</span><input id="global-search-input" type="search" autocomplete="off" placeholder="Search campus services…" aria-label="Search campus services" /><kbd class="search-shortcut">/</kbd><div class="search-popover" id="search-popover"></div></div></div><div class="topbar-right"><div class="menu-anchor"><button class="icon-button" aria-label="Notifications" data-menu-toggle="notifications">${I('bell')}<i class="notification-dot"></i></button><div class="utility-menu" id="menu-notifications"><div class="menu-head"><strong>Notifications</strong><span>Recent updates for you</span></div><div class="notification-item"><strong>Design Futures: Open Studio</strong><span>You’re registered · Sunday at 2:00 PM</span></div><div class="notification-item"><strong>Request NB-24091 updated</strong><span>Your facilities request is in progress.</span></div><div class="notification-item"><strong>New on the campus board</strong><span>A set of keys was found at the East Library.</span></div></div></div><span class="top-divider"></span><div class="menu-anchor"><button class="profile-trigger" data-menu-toggle="profile" aria-label="Student profile menu"><span class="avatar">MC</span><span class="profile-copy"><strong>${esc(state.user.name)}</strong><span>Student · Year 2</span></span>${I('chevron')}</button><div class="utility-menu" id="menu-profile"><div class="menu-head"><strong>${esc(state.user.name)}</strong><span>${esc(state.user.email)}</span></div><button class="menu-action" data-action="profile">${I('user')} Student profile</button><button class="menu-action danger" data-action="signout">${I('logout')} Sign out</button></div></div></div></header><main id="page-content" class="page-wrap"></main></div><nav class="mobile-tabbar" aria-label="Main navigation">${mobileTabs}</nav></div>`;
   renderPage();
 }
 
@@ -168,7 +192,7 @@ function fmtMoney(n) { return new Intl.NumberFormat('en-US',{style:'currency',cu
 function renderPage() {
   if (!state.authenticated) return renderAuth();
   const main = document.getElementById('page-content'); if (!main) return;
-  const pages = { dashboard:renderDashboard, lost:renderLost, marketplace:renderMarketplace, navigation:renderNavigation, complaints:renderComplaints, groups:renderGroups, events:renderEvents, appointments:renderAppointments };
+  const pages = { dashboard:renderDashboard, lost:renderLost, marketplace:renderMarketplace, hostel:renderHostelSpaces, navigation:renderNavigation, complaints:renderComplaints, groups:renderGroups, events:renderEvents, appointments:renderAppointments };
   main.innerHTML = (pages[state.activePage] || renderDashboard)();
 }
 
@@ -209,6 +233,68 @@ function renderMarketplace() {
   if (state.marketPrice==='under20') list=list.filter(i=>i.price<20);
   if (state.marketPrice==='20plus') list=list.filter(i=>i.price>=20);
   return `${heading('marketplace',actionBtn('Create listing','new-listing','plus'))}<div class="toolbar"><div class="segmented"><button class="segment ${state.marketTab==='browse'?'active':''}" data-market-tab="browse">Browse</button><button class="segment ${state.marketTab==='mine'?'active':''}" data-market-tab="mine">My listings</button></div><input class="control search-control" type="search" data-filter="market-query" value="${esc(state.marketQuery)}" placeholder="Search student listings" aria-label="Search marketplace" /><select class="control" data-filter="market-category" aria-label="Filter by category"><option value="all">All categories</option>${['Books','Home','Art supplies','Electronics'].map(c=>`<option ${state.marketCategory===c?'selected':''}>${c}</option>`).join('')}</select><select class="control" data-filter="market-price" aria-label="Filter by price"><option value="all">Any price</option><option value="under20" ${state.marketPrice==='under20'?'selected':''}>Under $20</option><option value="20plus" ${state.marketPrice==='20plus'?'selected':''}>$20 and up</option></select><select class="control" data-filter="market-condition" aria-label="Filter by condition"><option value="all">Any condition</option>${['Like new','Very good','Good'].map(c=>`<option ${state.marketCondition===c?'selected':''}>${c}</option>`).join('')}</select></div><div class="inline-message" style="margin-bottom:14px">${I('info')} Student-to-student listings are sample content. Interest messages are not sent outside this demo.</div>${list.length?`<div class="item-grid">${list.map(marketCard).join('')}</div>`:`<div class="card empty-state"><div class="empty-icon">${I('bag')}</div><h3>${state.marketTab==='mine'?'Your shelf is waiting':'No listings found'}</h3><p>${state.marketTab==='mine'?'Create a listing to pass something useful to another student.':'Try another search or category filter.'}</p>${state.marketTab==='mine'?`<button class="btn" data-action="new-listing">Create a listing ${I('plus')}</button>`:''}</div>`}`;
+}
+
+function hostelBookingsFor(towerId,type,date,spaceId=null) {
+  return [...sampleHostelBookings,...state.hostelReservations]
+    .filter(booking=>booking.towerId===towerId&&booking.type===type&&booking.date===date&&(!spaceId||booking.spaceId===spaceId))
+    .sort((a,b)=>a.start.localeCompare(b.start));
+}
+function formatHostelTime(value) {
+  const [hour,minute]=value.split(':').map(Number);
+  return `${hour%12||12}:${String(minute).padStart(2,'0')} ${hour>=12?'PM':'AM'}`;
+}
+function hostelTimeList(bookings,emptyText='No bookings for this date') {
+  if(!bookings.length)return `<span class="booking-empty">${emptyText}</span>`;
+  return `<div class="booking-times">${bookings.map(b=>`<span class="booking-time">${b.tableNumber?`Table ${b.tableNumber} · `:''}${formatHostelTime(b.start)}–${formatHostelTime(b.end)}</span>`).join('')}</div>`;
+}
+function defaultHostelTimeRange(date) {
+  let start=9*60;
+  if(date===isoToday) {
+    const now=new Date();
+    start=now.getHours()*60+now.getMinutes()+1;
+    if(start>=23*60+59)return null;
+  }
+  const end=Math.min(start+60,23*60+59);
+  return {start:`${String(Math.floor(start/60)).padStart(2,'0')}:${String(start%60).padStart(2,'0')}`,end:`${String(Math.floor(end/60)).padStart(2,'0')}:${String(end%60).padStart(2,'0')}`};
+}
+function openHostelBooking(type,spaceId) {
+  const tower=accessibleHostelTowers().find(t=>t.id===state.hostelTower);
+  if(!tower||!['discussion','private'].includes(type)||(type==='discussion'&&!/^room-[1-4]$/.test(spaceId))||(type==='private'&&spaceId!=='private-table'))return;
+  const date=state.hostelBookingDate||isoToday;
+  const label=type==='discussion'?`Discussion room ${spaceId.split('-')[1]}`:'Private study table';
+  const booked=hostelBookingsFor(tower.id,type,date,type==='discussion'?spaceId:null);
+  const times=defaultHostelTimeRange(date);
+  if(!times){showToast('There is no time left today. Choose another date.',true);return;}
+  const bookedHtml=type==='private'?booked.map(b=>({...b,spaceId:null})):booked;
+  openModal(`Choose a time · ${label}`,`${tower.name} · ${prettyDate(date)} · open 24/7`,
+    `<form id="hostel-booking-form" data-hostel-type="${type}" data-hostel-space="${spaceId}"><div class="booking-schedule"><strong>Already booked</strong>${hostelTimeList(bookedHtml,type==='private'?'No private tables booked for this date':'No bookings for this date')}</div><div class="form-grid"><div><label class="control-label" for="hostel-start">Start time</label><input class="control" type="time" id="hostel-start" name="start" value="${times.start}" required /></div><div><label class="control-label" for="hostel-end">End time</label><input class="control" type="time" id="hostel-end" name="end" value="${times.end}" required /></div><div class="span-2"><div class="form-help">Choose a start and end time on ${prettyDate(date)}. Spaces are available all day and night.</div><p class="form-error" id="hostel-booking-error" role="alert"></p></div></div><div class="form-actions"><button class="btn btn-secondary" type="button" data-action="close-modal">Cancel</button><button class="btn" type="submit">Confirm time ${I('arrow')}</button></div></form>`,true);
+}
+function confirmHostelCancellation(reservationId) {
+  const reservation=state.hostelReservations.find(item=>item.id===reservationId);
+  if(!reservation)return;
+  openModal('Cancel this booking?',`${reservation.spaceLabel} · ${prettyDate(reservation.date)}`,
+    `<p class="cancel-confirm-copy">Are you sure you want to cancel this booking? The reserved time will become available again.</p><div class="form-actions"><button class="btn btn-secondary" type="button" data-action="close-modal">Keep booking</button><button class="btn btn-confirm-cancel" type="button" data-hostel-cancel-confirm="${esc(reservation.id)}">Yes, cancel booking</button></div>`);
+}
+function renderHostelSpaces() {
+  const towers=accessibleHostelTowers();
+  if(!towers.length)return `${heading('hostel')}<div class="card empty-state"><div class="empty-icon">${I('building')}</div><h3>No hostel access is set for this profile</h3><p>Your hostel access group must be assigned to see eligible towers.</p></div>`;
+  if(!towers.some(t=>t.id===state.hostelTower))state.hostelTower=towers[0].id;
+  if(!state.hostelBookingDate||state.hostelBookingDate<isoToday)state.hostelBookingDate=isoToday;
+  const tower=towers.find(t=>t.id===state.hostelTower);
+  const date=state.hostelBookingDate;
+  const roomRows=[1,2,3,4].map(n=>{
+    const spaceId=`room-${n}`;
+    const bookings=hostelBookingsFor(tower.id,'discussion',date,spaceId);
+    return `<div class="room-row"><div class="room-info"><strong>Discussion room ${n}</strong><span>Enclosed room · open 24/7</span><div class="room-booked"><strong>Booked</strong>${hostelTimeList(bookings)}</div></div><button class="small-action" data-hostel-book="discussion" data-hostel-space="${spaceId}">Choose time</button></div>`;
+  }).join('');
+  const privateBookings=hostelBookingsFor(tower.id,'private',date);
+  const privateRows=privateBookings.map(b=>`<div class="private-booking-row"><span>Table ${b.tableNumber||'—'}</span><time>${formatHostelTime(b.start)}–${formatHostelTime(b.end)}</time></div>`).join('');
+  const myReservations=state.hostelReservations.slice().sort((a,b)=>`${a.date}${a.start}`.localeCompare(`${b.date}${b.start}`)).map(r=>`<div class="hostel-reservation"><span class="activity-icon">${I(r.type==='discussion'?'users':'building')}</span><span><strong>${esc(r.spaceLabel)}</strong><small>${esc(r.towerName)} · ${prettyDate(r.date)} · ${formatHostelTime(r.start)}–${formatHostelTime(r.end)}</small></span><button class="small-action cancel-space" data-hostel-cancel="${r.id}">Cancel booking</button></div>`).join('');
+  const pageHeading=`${heading('hostel')}<div class="hostel-tabs" role="tablist" aria-label="Hostel space pages"><button class="hostel-tab ${state.hostelTab==='spaces'?'active':''}" role="tab" aria-selected="${state.hostelTab==='spaces'}" data-hostel-tab="spaces">Spaces</button><button class="hostel-tab ${state.hostelTab==='bookings'?'active':''}" role="tab" aria-selected="${state.hostelTab==='bookings'}" data-hostel-tab="bookings">My bookings <span>${state.hostelReservations.length}</span></button></div>`;
+  const notice='<div class="inline-message" style="margin-bottom:16px">All study spaces are open 24/7. Girls can view girls’ towers and boys can view boys’ towers. Booked times are visible for the selected date. This demo saves reservations in this browser only.</div>';
+  if(state.hostelTab==='bookings')return `${pageHeading}${notice}${state.hostelReservations.length?`<section class="hostel-my-reservations"><div class="section-title"><div><h2>My bookings</h2><p>Cancel a booking here if your plans change.</p></div><span class="pill gray">${state.hostelReservations.length}</span></div><div class="card card-pad">${myReservations}</div></section>`:`<div class="card empty-state"><div class="empty-icon">${I('calendar')}</div><h3>No bookings yet</h3><p>Your discussion room and private table bookings will appear here.</p><button class="btn" data-hostel-tab="spaces">Browse spaces ${I('arrow')}</button></div>`}`;
+  return `${pageHeading}${notice}<section class="hostel-picker card card-pad"><div class="section-title"><div><h2>Choose a tower</h2><p>You can use any tower assigned to your hostel group</p></div>${I('building')}</div><div class="hostel-tower-list">${towers.map(t=>`<button class="hostel-tower ${t.id===tower.id?'active':''}" data-hostel-tower="${t.id}" ${t.id===tower.id?'aria-pressed="true"':'aria-pressed="false"'}><span class="tower-mark">${I('building')}</span><span><strong>${esc(t.name)}</strong><small>${t.group==='girls'?'Girls’ hostel':'Boys’ hostel'}</small></span></button>`).join('')}</div><div class="hostel-open-status"><span class="hostel-card-icon">${I('clock')}</span><span><strong>Open 24/7</strong><small>Choose a date to see booked times, then select a start and end time.</small></span></div><label class="hostel-date-filter" for="hostel-booking-date"><span><strong>Check availability</strong><small>Bookings for the selected day</small></span><input class="control" type="date" id="hostel-booking-date" min="${isoToday}" value="${date}" /></label></section><div class="hostel-spaces-grid"><section class="card card-pad hostel-space-card"><div class="hostel-card-head"><span class="hostel-card-icon">${I('users')}</span><span class="pill teal">4 rooms</span></div><h2>Discussion rooms</h2><p>Reserve an enclosed room for a group study session.</p><div class="room-list">${roomRows}</div></section><section class="card card-pad hostel-space-card"><div class="hostel-card-head"><span class="hostel-card-icon private">${I('book')}</span><span class="pill teal">10 tables</span></div><h2>Private study tables</h2><p>Individual tables separated by privacy boards.</p><button class="btn btn-secondary private-book-button" data-hostel-book="private" data-hostel-space="private-table">Choose time</button><div class="private-booking-list"><strong>Booked · ${prettyDate(date)}</strong>${privateRows||'<span class="booking-empty">No private tables booked for this date</span>'}</div></section></div><section class="hostel-amenities"><div class="section-title"><div><h2>Other spaces</h2><p>Walk-in spaces in ${esc(tower.name)}</p></div></div><div class="hostel-amenity-grid"><article class="card hostel-amenity"><span class="hostel-card-icon shared">${I('campus')}</span><div><h3>Shared study tables</h3><p>Walk-in · first come, first served.</p></div></article>${[['Gym','heart'],['Mini theatre','image'],['Meditation room','spark']].map(([name,icon])=>`<article class="card hostel-amenity"><span class="hostel-card-icon amenity">${I(icon)}</span><div><h3>${name}</h3><p>Walk-in access · Check tower notices for hours</p></div></article>`).join('')}</div></section>`;
 }
 
 function mapSvg() {
@@ -316,6 +402,11 @@ function navigate(page) {
   document.getElementById('menu-profile')?.classList.remove('is-open'); document.getElementById('menu-notifications')?.classList.remove('is-open');
   closeMobileMenu();
   document.querySelectorAll('.nav-link').forEach(n=>{n.classList.toggle('active',n.dataset.page===page); if(n.dataset.page===page)n.setAttribute('aria-current','page');else n.removeAttribute('aria-current');});
+  document.querySelectorAll('.mobile-tab').forEach(tab=>{
+    const active=tab.dataset.page===page||(tab.dataset.page==='hostel'&&['hostel','lost','marketplace','complaints','appointments'].includes(page));
+    tab.classList.toggle('active',active);
+    if(active)tab.setAttribute('aria-current','page');else tab.removeAttribute('aria-current');
+  });
   renderPage(); window.scrollTo({top:0,behavior:'smooth'});
 }
 function closeMobileMenu() {
@@ -324,6 +415,10 @@ function closeMobileMenu() {
   const toggle=document.querySelector('.mobile-menu');
   toggle?.setAttribute('aria-expanded','false');
   toggle?.setAttribute('aria-label','Open navigation');
+}
+function accessibleHostelTowers() {
+  const group=state.user.hostelGroup;
+  return group==='all'?hostelTowers:hostelTowers.filter(t=>t.group===group);
 }
 function handleGlobalSearch(value) {
   const pop=document.getElementById('search-popover'); if(!pop)return;
@@ -369,6 +464,18 @@ document.addEventListener('click', e => {
   if(target.dataset.marketTab){state.marketTab=target.dataset.marketTab;renderPage();return;}
   if(target.dataset.requestTab){state.requestTab=target.dataset.requestTab;renderPage();return;}
   if(target.dataset.eventTab){state.eventTab=target.dataset.eventTab;renderPage();return;}
+  if(target.dataset.hostelTab){state.hostelTab=target.dataset.hostelTab==='bookings'?'bookings':'spaces';renderPage();return;}
+  if(target.dataset.hostelTower){if(!accessibleHostelTowers().some(t=>t.id===target.dataset.hostelTower))return;state.hostelTower=target.dataset.hostelTower;renderPage();return;}
+  if(target.dataset.hostelBook){
+    openHostelBooking(target.dataset.hostelBook,target.dataset.hostelSpace);return;
+  }
+  if(target.dataset.hostelCancel){confirmHostelCancellation(target.dataset.hostelCancel);return;}
+  if(target.dataset.hostelCancelConfirm){
+    const reservation=state.hostelReservations.find(item=>item.id===target.dataset.hostelCancelConfirm);
+    if(!reservation){closeModal();renderPage();return;}
+    state.hostelReservations=state.hostelReservations.filter(item=>item.id!==reservation.id);
+    closeModal();state.hostelTab='bookings';renderPage();showToast('Booking cancelled in this demo.');return;
+  }
   if(target.dataset.destination){state.selectedDestination=target.dataset.destination;renderPage();return;}
   if(target.dataset.detailLost){showDetail('lost',target.dataset.detailLost);return;}
   if(target.dataset.detailMarket){showDetail('market',target.dataset.detailMarket);return;}
@@ -383,7 +490,7 @@ document.addEventListener('click', e => {
   if(action==='toggle-password') {state.passwordShown=!state.passwordShown;const input=document.getElementById('password');if(input)input.type=state.passwordShown?'text':'password';target.innerHTML=I(state.passwordShown?'eyeOff':'eye');target.setAttribute('aria-label',state.passwordShown?'Hide password':'Show password');return;}
   if(action==='recover'){state.authScreen='recovery';renderAuth();return;}
   if(action==='auth-back'){state.authScreen='login';renderAuth();return;}
-  if(action==='demo-signin'){state.user=state.accountType==='admin'?{name:'Jordan Lee',email:'jordan.lee@dsu.edu.in',id:'ADM-104',major:'Campus Services',year:'Admin'}:{name:'Maya Chen',email:'maya.chen@student.dsu.edu.in',id:'S2408172',major:'Environmental Design',year:'Year 2'};state.authenticated=true;state.activePage='dashboard';renderShell();showToast(`Welcome to the DSU Pulse ${state.accountType} demo.`);return;}
+  if(action==='demo-signin'){state.user=state.accountType==='admin'?{name:'Jordan Lee',email:'jordan.lee@dsu.edu.in',id:'ADM-104',major:'Campus Services',year:'Admin',hostelGroup:'all'}:{name:'Maya Chen',email:'maya.chen@student.dsu.edu.in',id:'S2408172',major:'Environmental Design',year:'Year 2',hostelGroup:'girls'};state.authenticated=true;state.activePage='dashboard';renderShell();showToast(`Welcome to the DSU Pulse ${state.accountType} demo.`);return;}
   if(action==='signout'){state.authenticated=false;state.authScreen='login';state.menu=null;renderAuth();return;}
   if(action==='open-mobile'){document.getElementById('sidebar')?.classList.add('is-open');document.getElementById('mobile-scrim')?.classList.add('is-visible');target.setAttribute('aria-expanded','true');target.setAttribute('aria-label','Close navigation');return;}
   if(action==='close-mobile'){closeMobileMenu();return;}
@@ -417,6 +524,12 @@ document.addEventListener('change', e => {
   if(el.dataset.filter==='market-condition'){state.marketCondition=el.value;renderPage();}
   if(el.dataset.filter==='market-price'){state.marketPrice=el.value;renderPage();}
   if(el.dataset.filter==='event-category'){state.selectedEventCategory=el.value;renderPage();}
+  if(el.id==='hostel-booking-date'){
+    const chosen=el.value;
+    if(chosen&&chosen>=isoToday)state.hostelBookingDate=chosen;
+    else if(chosen){state.hostelBookingDate=isoToday;showToast('Choose today or a future date.',true);}
+    renderPage();
+  }
   if(el.id==='appointment-date'){
     const chosen=el.value;if(chosen&&chosen<isoToday){el.value=isoToday;showToast('Choose today or a future date.',true);}
     renderPage();
@@ -430,7 +543,7 @@ document.addEventListener('submit', e => {
     if(password.length<6){error.textContent='Use at least 6 characters for the demo password.';error.classList.add('is-visible');form.password.focus();return;}
     const btn=document.getElementById('signin-submit');btn.disabled=true;btn.innerHTML=`${I('refresh')} Opening your student hub…`;
     const name=identity.includes('@')?identity.split('@')[0].split(/[._-]/).map(x=>x.charAt(0).toUpperCase()+x.slice(1)).join(' '):'Student';
-    state.user={name:name==='Maya Chen'?'Maya Chen':name,email:identity.includes('@')?identity:`${identity}@${state.accountType==='student'?'student.':''}dsu.edu.in`,id:identity.includes('@')?(state.accountType==='admin'?'ADM-104':'S2408172'):identity,major:state.accountType==='admin'?'Campus Services':'Environmental Design',year:state.accountType==='admin'?'Admin':'Year 2'};
+    state.user={name:name==='Maya Chen'?'Maya Chen':name,email:identity.includes('@')?identity:`${identity}@${state.accountType==='student'?'student.':''}dsu.edu.in`,id:identity.includes('@')?(state.accountType==='admin'?'ADM-104':'S2408172'):identity,major:state.accountType==='admin'?'Campus Services':'Environmental Design',year:state.accountType==='admin'?'Admin':'Year 2',hostelGroup:state.accountType==='admin'?'all':'girls'};
     setTimeout(()=>{state.authenticated=true;state.activePage='dashboard';renderShell();showToast('You’re signed in to the DSU Pulse demo.');},650);return;
   }
   if(form.id==='recovery-form'){
@@ -450,6 +563,26 @@ document.addEventListener('submit', e => {
   }
   if(form.id==='task-form'){
     const fd=new FormData(form);const due=fd.get('due');state.projects[0].tasks.push({id:`t${Date.now()}`,title:fd.get('title').trim(),status:'todo',due:prettyDate(due),owner:fd.get('owner').trim()||'Maya'});closeModal();renderPage();showToast('Task added to your demo project.');return;
+  }
+  if(form.id==='hostel-booking-form'){
+    const fd=new FormData(form);const type=form.dataset.hostelType;const spaceId=form.dataset.hostelSpace;const date=state.hostelBookingDate||isoToday;const start=fd.get('start');const end=fd.get('end');const error=document.getElementById('hostel-booking-error');
+    const fail=message=>{if(error){error.textContent=message;error.classList.add('is-visible');}else showToast(message,true);};
+    if(date<isoToday){fail('Choose today or a future date.');return;}
+    if(!start||!end||start>=end){fail('Choose an end time later than the start time.');return;}
+    if(date===isoToday&&new Date(`${date}T${start}:00`)<=new Date()){fail('Choose a start time that has not passed.');return;}
+    const tower=accessibleHostelTowers().find(t=>t.id===state.hostelTower);
+    if(!tower){fail('This tower is not available to your hostel group.');return;}
+    const bookings=hostelBookingsFor(tower.id,type,date,type==='discussion'?spaceId:null);
+    const overlaps=bookings.some(b=>start<b.end&&end>b.start);
+    if(type==='discussion'&&overlaps){fail('That room is already booked during this time. Choose another time.');return;}
+    let tableNumber=null;
+    if(type==='private'){
+      tableNumber=Array.from({length:10},(_,i)=>i+1).find(n=>!bookings.some(b=>b.tableNumber===n&&start<b.end&&end>b.start));
+      if(!tableNumber){fail('All private tables are booked during this time. Choose another time.');return;}
+    }
+    const spaceLabel=type==='discussion'?`Discussion room ${spaceId.split('-')[1]}`:`Private study table ${tableNumber}`;
+    state.hostelReservations.unshift({id:`HS-${Date.now()}`,towerId:tower.id,towerName:tower.name,type,spaceId,spaceLabel,date,start,end,tableNumber});
+    closeModal();renderPage();showToast(`${spaceLabel} reserved for ${formatHostelTime(start)}–${formatHostelTime(end)}.`);return;
   }
   if(form.id==='appointment-form'){
     const fd=new FormData(form);const error=document.getElementById('appointment-error');const date=fd.get('date');const time=fd.get('time');if(!time){error.textContent='Choose one of the available sample times.';error.classList.add('is-visible');return;}if(!date||date<isoToday){error.textContent='Choose today or a future date.';error.classList.add('is-visible');return;}const id=`A-${Math.floor(1000+Math.random()*8999)}`;state.appointments.unshift({id,department:fd.get('department'),date,time,status:'Upcoming'});renderPage();showToast(`Appointment ${id} confirmed in this demo.`);return;
