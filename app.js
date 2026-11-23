@@ -52,6 +52,26 @@ const monthShort = d => new Date(`${d}T12:00:00`).toLocaleDateString('en-US',{mo
 const dayNum = d => new Date(`${d}T12:00:00`).getDate();
 const prettyDate = d => new Date(`${d}T12:00:00`).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
 const timeNow = () => new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+const notificationFeed = [
+  {id:'event-registration',sentAt:Date.now()-32*60*1000},
+  {id:'request-update',sentAt:Date.now()-2*60*60*1000},
+  {id:'lost-and-found',sentAt:Date.now()-6*60*60*1000},
+];
+let notificationDotTimer = null;
+
+function refreshNotificationDot() {
+  clearTimeout(notificationDotTimer);
+  const dot=document.querySelector('.notification-dot');
+  if(!dot)return;
+  const now=Date.now();
+  const oneHour=60*60*1000;
+  const recent=notificationFeed.filter(item=>item.sentAt<=now&&item.sentAt>now-oneHour);
+  dot.hidden=recent.length===0;
+  if(recent.length) {
+    const nextExpiry=Math.min(...recent.map(item=>item.sentAt+oneHour));
+    notificationDotTimer=setTimeout(refreshNotificationDot,Math.max(0,nextExpiry-now)+25);
+  }
+}
 
 const navItems = [
   { id:'dashboard',label:'Home',icon:'home',group:'STUDENT HUB' },
@@ -62,6 +82,7 @@ const navItems = [
   { id:'complaints',label:'Requests',icon:'alert',group:'CAMPUS LIFE' },
   { id:'groups',label:'Group projects',icon:'users',group:'CAMPUS LIFE' },
   { id:'events',label:'Events',icon:'calendar',group:'CAMPUS LIFE' },
+  { id:'notices',label:'Notices',icon:'bell',group:'CAMPUS LIFE' },
   { id:'appointments',label:'Appointments',icon:'clock',group:'CAMPUS LIFE' },
 ];
 const pageInfo = {
@@ -73,6 +94,7 @@ const pageInfo = {
   complaints:['Requests & reports','Track campus issues and service requests from one place.'],
   groups:['Group projects','Keep team tasks, members, and deadlines moving together.'],
   events:['Campus events','Discover what’s on and keep the events you plan to attend close by.'],
+  notices:['Campus notices','Important campus updates and announcements in one place.'],
   appointments:['Appointments','Choose a campus service and reserve a convenient time.'],
 };
 
@@ -170,10 +192,12 @@ function renderShell() {
   const servicePages = ['hostel','lost','marketplace','complaints','appointments'];
   const mobileTabs = [['dashboard','Home','home'],['events','Events','calendar'],['navigation','Map','map'],['hostel','Services','building']].map(([page,label,icon])=>{
     const active=page==='hostel'?servicePages.includes(state.activePage):state.activePage===page;
-    return `<button class="mobile-tab ${active?'active':''}" data-page="${page}" ${active?'aria-current="page"':''}><span class="mobile-tab-icon">${I(icon)}</span><span>${label}</span></button>`;
+    return `<button class="mobile-tab ${active?'active':''}" data-page="${page}" aria-label="${label}" ${active?'aria-current="page"':''}><span class="mobile-tab-icon">${I(icon)}</span><span>${label}</span></button>`;
   }).join('');
-  root.innerHTML = `<div class="shell"><aside class="sidebar" id="sidebar">${brand()}${groups.map(group=>`<div class="nav-label">${group}</div><nav class="nav-list" aria-label="${group.toLowerCase()}">${navItems.filter(n=>n.group===group).map(n=>`<button class="nav-link ${state.activePage===n.id?'active':''}" data-page="${n.id}" ${state.activePage===n.id?'aria-current="page"':''}>${I(n.icon)}<span>${n.label}</span></button>`).join('')}</nav>`).join('')}<div class="nav-spacer"></div><div class="sidebar-bottom"><div class="campus-status"><i class="status-dot"></i><div><strong>Dayananda Sagar University campus</strong><span>Open · Student services online</span></div></div><div class="sidebar-foot"><span>DSU Pulse demo</span><span>v1.0</span></div></div></aside><div class="mobile-scrim" id="mobile-scrim" data-action="close-mobile"></div>
+  root.innerHTML = `<div class="shell"><aside class="sidebar" id="sidebar">${brand()}${groups.map(group=>`<section class="nav-group"><div class="nav-label">${group}</div><nav class="nav-list" aria-label="${group.toLowerCase()}">${navItems.filter(n=>n.group===group).map(n=>`<button class="nav-link ${state.activePage===n.id?'active':''}" data-page="${n.id}" ${state.activePage===n.id?'aria-current="page"':''}>${I(n.icon)}<span>${n.label}</span></button>`).join('')}</nav></section>`).join('')}<div class="nav-spacer"></div><div class="sidebar-bottom"><div class="campus-status"><i class="status-dot"></i><div><strong>Dayananda Sagar University campus</strong><span>Open · Student services online</span></div></div><div class="sidebar-foot"><span>DSU Pulse demo</span><span>v1.0</span></div></div></aside><div class="mobile-scrim" id="mobile-scrim" data-action="close-mobile"></div>
   <div class="main-area"><header class="topbar"><div class="topbar-left"><button class="mobile-menu" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false" data-action="open-mobile">${I('menu')}</button><div class="global-search"><span class="search-icon" aria-hidden="true">${I('search')}</span><input id="global-search-input" type="search" autocomplete="off" placeholder="Search campus services…" aria-label="Search campus services" /><kbd class="search-shortcut">/</kbd><div class="search-popover" id="search-popover"></div></div></div><div class="topbar-right"><div class="menu-anchor"><button class="icon-button" aria-label="Notifications" data-menu-toggle="notifications">${I('bell')}<i class="notification-dot"></i></button><div class="utility-menu" id="menu-notifications"><div class="menu-head"><strong>Notifications</strong><span>Recent updates for you</span></div><div class="notification-item"><strong>Design Futures: Open Studio</strong><span>You’re registered · Sunday at 2:00 PM</span></div><div class="notification-item"><strong>Request NB-24091 updated</strong><span>Your facilities request is in progress.</span></div><div class="notification-item"><strong>New on the campus board</strong><span>A set of keys was found at the East Library.</span></div></div></div><span class="top-divider"></span><div class="menu-anchor"><button class="profile-trigger" data-menu-toggle="profile" aria-label="Student profile menu"><span class="avatar">MC</span><span class="profile-copy"><strong>${esc(state.user.name)}</strong><span>Student · Year 2</span></span>${I('chevron')}</button><div class="utility-menu" id="menu-profile"><div class="menu-head"><strong>${esc(state.user.name)}</strong><span>${esc(state.user.email)}</span></div><button class="menu-action" data-action="profile">${I('user')} Student profile</button><button class="menu-action danger" data-action="signout">${I('logout')} Sign out</button></div></div></div></header><main id="page-content" class="page-wrap"></main></div><nav class="mobile-tabbar" aria-label="Main navigation">${mobileTabs}</nav></div>`;
+  root.querySelector('#menu-notifications')?.insertAdjacentHTML('beforeend', `<button class="notification-all" data-page="notices">View all notices ${I('chevronRight')}</button>`);
+  refreshNotificationDot();
   renderPage();
 }
 
@@ -192,7 +216,7 @@ function fmtMoney(n) { return new Intl.NumberFormat('en-US',{style:'currency',cu
 function renderPage() {
   if (!state.authenticated) return renderAuth();
   const main = document.getElementById('page-content'); if (!main) return;
-  const pages = { dashboard:renderDashboard, lost:renderLost, marketplace:renderMarketplace, hostel:renderHostelSpaces, navigation:renderNavigation, complaints:renderComplaints, groups:renderGroups, events:renderEvents, appointments:renderAppointments };
+  const pages = { dashboard:renderDashboard, lost:renderLost, marketplace:renderMarketplace, hostel:renderHostelSpaces, navigation:renderNavigation, complaints:renderComplaints, groups:renderGroups, events:renderEvents, notices:renderNotices, appointments:renderAppointments };
   main.innerHTML = (pages[state.activePage] || renderDashboard)();
 }
 
@@ -335,6 +359,15 @@ function renderEvents() {
   return `${heading('events')}<div class="tab-row"><button class="tab-button ${state.eventTab==='discover'?'active':''}" data-event-tab="discover">Discover</button><button class="tab-button ${state.eventTab==='registered'?'active':''}" data-event-tab="registered">My registrations (${state.events.filter(e=>e.registered).length})</button></div><div class="toolbar"><input class="control search-control" type="search" data-filter="event-query" value="${esc(state.eventQuery)}" placeholder="Search events or venues" aria-label="Search events" /><select class="control" data-filter="event-category" aria-label="Filter event category"><option value="all">All categories</option>${['Academic','Community','Wellbeing'].map(c=>`<option ${state.selectedEventCategory===c?'selected':''}>${c}</option>`).join('')}</select><span class="calendar-mini">${I('info')} Sample events for November 2026</span></div>${events.length?`<div class="item-grid">${events.map(eventCard).join('')}</div>`:`<div class="card empty-state"><div class="empty-icon">${I('calendar')}</div><h3>${state.eventTab==='registered'?'No registrations yet':'No events match'}</h3><p>${state.eventTab==='registered'?'Register for an event and it will be easy to find here.':'Try another category or search term.'}</p>${state.eventTab==='registered'?`<button class="btn btn-secondary" data-event-tab="discover">Browse events ${I('arrow')}</button>`:''}</div>`}`;
 }
 
+function renderNotices() {
+  const notices = [
+    {category:'Campus update',title:'Extended library hours this week',detail:'The East Library quiet floor is open until 11:00 PM during project season.',date:'Nov 23 · 9:30 AM',icon:'book'},
+    {category:'Student life',title:'Night Market at the Student Union',detail:'Meet student makers and try local food on Wednesday, Nov 25 from 5:00 PM.',date:'Nov 23 · 8:00 AM',icon:'calendar'},
+    {category:'Student services',title:'Appointments available for next week',detail:'Book advising, wellbeing, and accessibility service slots from the Appointments page.',date:'Nov 22 · 4:15 PM',icon:'clock'},
+  ];
+  return `${heading('notices')}<div class="inline-message" style="margin-bottom:15px">${I('info')} Sample notices for this prototype. Official campus updates can be connected here.</div><div class="notice-list" role="list" aria-label="Campus notices">${notices.map(n=>`<article class="card notice-card" role="listitem"><span class="notice-icon">${I(n.icon)}</span><div class="notice-copy"><div class="notice-meta">${statusPill(n.category)}<time>${n.date}</time></div><h2>${n.title}</h2><p>${n.detail}</p></div></article>`).join('')}</div>`;
+}
+
 function renderAppointments() {
   const upcoming=state.appointments.filter(a=>a.status==='Upcoming');
   const past=state.appointments.filter(a=>a.status!=='Upcoming');
@@ -458,7 +491,8 @@ document.addEventListener('click', e => {
   if(target.dataset.accountType){state.accountType=target.dataset.accountType;renderAuth();return;}
   if(target.dataset.searchPage){navigate(target.dataset.searchPage);document.getElementById('global-search-input').value='';document.getElementById('search-popover')?.classList.remove('is-open');return;}
   if(target.dataset.menuToggle){
-    const key=target.dataset.menuToggle;document.querySelectorAll('.utility-menu').forEach(m=>m.classList.remove('is-open'));const menu=document.getElementById(`menu-${key}`);menu?.classList.toggle('is-open');state.menu=menu?.classList.contains('is-open')?key:null;return;
+    const key=target.dataset.menuToggle;
+    document.querySelectorAll('.utility-menu').forEach(m=>m.classList.remove('is-open'));const menu=document.getElementById(`menu-${key}`);menu?.classList.toggle('is-open');state.menu=menu?.classList.contains('is-open')?key:null;return;
   }
   if(target.dataset.lostTab){state.lostTab=target.dataset.lostTab;renderPage();return;}
   if(target.dataset.marketTab){state.marketTab=target.dataset.marketTab;renderPage();return;}
